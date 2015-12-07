@@ -1,4 +1,4 @@
-# NanoVG-d
+# NanoVG.d
 **Work in Progress**  
 NanoVG([memononen/nanovg](https://github.com/memononen/nanovg)) porting and wrapping for dlang
 
