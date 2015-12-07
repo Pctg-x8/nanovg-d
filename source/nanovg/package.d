@@ -1,4 +1,4 @@
 module nanovg;
 
-public import nanovg.gl;
+version(UseGL3Renderer) public import nanovg.gl3;
 public import nanovg.h;

@@ -1,4 +1,4 @@
-module nanovg.gl;
+module nanovg.gl3;
 
 //
 // NanoVG-d:
@@ -79,6 +79,8 @@ class Texture
 	
 	public this(int w, int h, int type, int imageFlags, const(byte)* pData)
 	{
+		import std.experimental.logger;
+		info("CreateTexture: ", w, "/", h);
 		this.size = Size(w, h);
 		this.flags = imageFlags;
 		
@@ -131,6 +133,8 @@ class Texture
 	
 	bool update(int x, int y, int w, int h, const(byte)* data)
 	{
+		import std.experimental.logger;
+		info("UpdateTexture: ", x, "/", y, "/", w, "/", h);
 		GLContext.Texture2D = this.texture;
 		this.setPixelStoreState();
 		GLPixelStore.SkipPixels = x;
@@ -144,6 +148,7 @@ class Texture
 		case ImageType.Single:
 			glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, w, h, GL_RED, GL_UNSIGNED_BYTE, data);
 		}
+		glCheckError();
 		
 		this.revertPixelStoreState();
 		GLContext.Texture2D = NullTexture;
@@ -157,17 +162,9 @@ class Texture
 	}
 }
 
-class UniformBlock
-{
-	GLuint index;
-	
-	public this(GLuint idx) { this.index = idx; }
-}
-
 class RenderProgram
 {
 	GLuint vsh, fsh, program;
-	UniformBlock[string] uniformBlocks;
 	
 	public this()
 	{
@@ -203,14 +200,24 @@ class RenderProgram
 	{
 		GLint[string] cache;
 		
-		GLint opDispatch(string op)()
+		public this() { this.userIndexes = new UserIndexAccessor(); }
+		GLint opDispatch(string op)() { return this[op]; }
+		GLint opIndex(string op)
 		{
 			if(op in cache) return cache[op];
-			cache[op] = this.program.glGetUniformBlockIndex(op.toStringz);
+			cache[op] = this.outer.program.glGetUniformBlockIndex(op.toStringz);
 			return cache[op];
 		}
+		class UserIndexAccessor
+		{
+			void opIndexAssign(GLint idx, string vn)
+			{
+				glUniformBlockBinding(this.outer.outer.program, this.outer[vn], idx);
+			}
+		}
+		UserIndexAccessor userIndexes;
 	}
-	UniformBlockAccessor uniformBlocks;
+	UniformBlockIndexAccessor uniformBlocks;
 	class UniformLocationAccessor
 	{
 		GLint[string] cache;
@@ -218,7 +225,7 @@ class RenderProgram
 		GLint opDispatch(string op)()
 		{
 			if(op in cache) return cache[op];
-			cache[op] = this.program.glGetUniformLocation(op.toStringz);
+			cache[op] = this.outer.program.glGetUniformLocation(op.toStringz);
 			return cache[op];
 		}
 	}
@@ -230,7 +237,7 @@ class RenderProgram
 		GLint opDispatch(string op)()
 		{
 			if(op in cache) return cache[op];
-			cache[op] = this.program.glGetAttribLocation(op.toStringz);
+			cache[op] = this.outer.program.glGetAttribLocation(op.toStringz);
 			return cache[op];
 		}
 	}
@@ -262,6 +269,8 @@ struct Path
 
 class Context
 {
+	const FUBUserIndex = 1;
+	
 	RenderProgram program;
 	UniformBufferObject fragUniformObject;
 	VertexArrayObject varray;
@@ -272,6 +281,7 @@ class Context
 	NVGvertex[] vertexList;
 	FragUniformBuffer[] uniformList;
 	Size vport;
+	size_t ubHardwareSize, ubHardwarePadding;
 	
 	GLint ublocFrag;
 	GLint ulocTexImage, ulocViewSize;
@@ -286,9 +296,17 @@ class Context
 		this.alocVertex = this.program.inputs.vertex;
 		this.alocTexcoord = this.program.inputs.texcoord;
 		
+		import std.experimental.logger;
+		info("viewSize Location: ", this.ulocViewSize);
+		info("texImage Location: ", this.ulocTexImage);
+		
+		this.program.uniformBlocks.userIndexes["frag"] = FUBUserIndex;
 		this.fragUniformObject = new UniformBufferObject();
 		this.varray = new VertexArrayObject();
 		this.vbuffer = new ArrayBufferObject();
+		int ub_align = GLUniformBuffer.OffsetAlignment;
+		this.ubHardwareSize = (cast(int)((FragUniformBuffer.sizeof - 1) / ub_align) + 1) * ub_align;
+		this.ubHardwarePadding = this.ubHardwareSize - FragUniformBuffer.sizeof;
 		
 		glFinish();
 	}
@@ -350,13 +368,20 @@ class Context
 		GLContext.DepthTest.Enable = false;
 		GLContext.ScissorTest.Enable = false;
 		// activate shader resource
-		GLContext.Texture0.Active = true;
+		GLContext.ActiveTexture = 0;
 		GLContext.Texture2D = NullTexture;
 		// uniform setup
+		byte[] uniformBytes;
+		foreach(ref ub; this.uniformList)
+		{
+			auto pBytePtr = cast(const(byte)*)cast(void*)&ub;
+			uniformBytes ~= pBytePtr[0 .. FragUniformBuffer.sizeof];
+			uniformBytes.length += this.ubHardwarePadding;
+		}
 		GLContext.UniformBuffer = this.fragUniformObject;
-		GLUniformBuffer.ArrayData = this.uniformList;
+		GLUniformBuffer.ArrayData = uniformBytes;
 		GLProgram.Uniform[this.ulocTexImage] = 0;
-		GLProgram.Uniform[this.ulocViewSize] = [this.size.width, this.size.height];
+		GLProgram.Uniform[this.ulocViewSize] = [this.vport.width, this.vport.height];
 		// vertex array setup
 		GLContext.VertexArray = this.varray;
 		GLContext.ArrayBuffer = this.vbuffer;
@@ -366,6 +391,8 @@ class Context
 		
 		foreach(call; this.callList)
 		{
+			import std.experimental.logger;
+			// info("Process Call...type: ", call.type);
 			final switch(call.type)
 			{
 			case CommandType.Fill: this.processFill(call); break;
@@ -377,20 +404,81 @@ class Context
 		
 		GLArrayBuffer.AttribPointer[this.alocTexcoord] = DisablePointer();
 		GLArrayBuffer.AttribPointer[this.alocVertex] = DisablePointer();
-		GLContext.ArrayBuffer = null;
-		GLContext.VertexArray = null;
+		GLContext.ArrayBuffer = cast(ArrayBufferObject)null;
+		GLContext.VertexArray = cast(VertexArrayObject)null;
 		GLContext.CullFace.Enable = false;
 		GLContext.Texture2D = NullTexture;
 		GLContext.RenderProgram = DisableProgram;
 	}
-	private void processFill(Call call)
+	const FillFunc = (Path a) { glDrawArrays(GL_TRIANGLE_FAN, cast(int)a.fillOffset, cast(int)a.fillCount); };
+	const DrawStrokeFunc = (Path a) { glDrawArrays(GL_TRIANGLE_STRIP, cast(int)a.strokeOffset, cast(int)a.strokeCount); };
+	private void processFill(InternalDrawCall call)
 	{
+		// Draw shapes
 		GLContext.Stencil.EnableTest = true;
 		GLContext.Stencil.Mask = 0xff;
 		GLContext.Stencil.Func = GLStencilFuncParams(GL_ALWAYS, 0, 0xff);
 		GLContext.ColorMask = [false, false, false, false];
-		GLUniformBuffer.BindRange[this.ublocFrag]
-			= IndexedBufferRange!FragUniformBuffer(call.uniformOffset);
+		this.setUniformAndTexture(call.uniformOffset, 0);
+		GLContext.Stencil.Operations[GLFaceDirection.Front] = GLStencilOpSet(GL_KEEP, GL_KEEP, GL_INCR_WRAP);
+		GLContext.Stencil.Operations[GLFaceDirection.Back] = GLStencilOpSet(GL_KEEP, GL_KEEP, GL_DECR_WRAP);
+		GLContext.CullFace.Enable = false;
+		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!FillFunc;
+		GLContext.CullFace.Enable = true;
+		
+		// Draw anti-aliased pixels
+		GLContext.ColorMask = [true, true, true, true];
+		this.setUniformAndTexture(call.uniformOffset + 1, call.image);
+		GLContext.Stencil.Func = GLStencilFuncParams(GL_EQUAL, 0, 0xff);
+		GLContext.Stencil.Operations = GLStencilOpPresets.Keep;
+		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!DrawStrokeFunc;
+		
+		// Draw fill
+		GLContext.Stencil.Func = GLStencilFuncParams(GL_NOTEQUAL, 0, 0xff);
+		GLContext.Stencil.Operations = GLStencilOpPresets.Zero;
+		glDrawArrays(GL_TRIANGLES, cast(int)call.triangleOffset, cast(int)call.triangleCount);
+		
+		GLContext.Stencil.EnableTest = false;
+	}
+	private void processConvexFill(InternalDrawCall call)
+	{
+		import std.experimental.logger;
+		this.setUniformAndTexture(call.uniformOffset, call.image);
+		// this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!(a => info(a.fillOffset, "/", a.fillCount, "/", a.strokeOffset, "/", a.strokeCount));
+		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!FillFunc;
+		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!DrawStrokeFunc;
+	}
+	private void processStroke(InternalDrawCall call)
+	{
+		// Uses Stencil Stroke
+		GLContext.Stencil.EnableTest = true;
+		GLContext.Stencil.Mask = 0xff;
+		
+		// Fill the stroke base without overlap
+		GLContext.Stencil.Func = GLStencilFuncParams(GL_EQUAL, 0, 0xff);
+		GLContext.Stencil.Operations = GLStencilOpPresets.IncrementOnSucceeded;
+		this.setUniformAndTexture(call.uniformOffset + 1, call.image);
+		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!DrawStrokeFunc;
+		
+		// Draw anti-aliased pixels
+		this.setUniformAndTexture(call.uniformOffset, call.image);
+		GLContext.Stencil.Func = GLStencilFuncParams(GL_EQUAL, 0, 0xff);
+		GLContext.Stencil.Operations = GLStencilOpPresets.Keep;
+		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!DrawStrokeFunc;
+		
+		// Clear stencil buffer
+		GLContext.ColorMask = [false, false, false, false];
+		GLContext.Stencil.Func = GLStencilFuncParams(GL_ALWAYS, 0, 0xff);
+		GLContext.Stencil.Operations = GLStencilOpPresets.Zero;
+		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!DrawStrokeFunc;
+		GLContext.ColorMask = [true, true, true, true];
+		
+		GLContext.Stencil.EnableTest = false;
+	}
+	private void processTriangles(InternalDrawCall call)
+	{
+		this.setUniformAndTexture(call.uniformOffset, call.image);
+		glDrawArrays(GL_TRIANGLES, cast(int)call.triangleOffset, cast(int)call.triangleCount);
 	}
 	private void allocatePathList(CommandType T)(const(NVGpath)[] paths)
 	{
@@ -492,6 +580,7 @@ class Context
 		
 		if(scissor.extent[0] < -0.5f || scissor.extent[1] < -0.5f)
 		{
+			ub.scissorMatr[] = 0.0;
 			ub.scissorExt = [1.0f, 1.0f];
 			ub.scissorScale = [1.0f, 1.0f];
 		}
@@ -505,7 +594,7 @@ class Context
 		}
 		
 		ub.extent = paint.extent;
-		ub.strokeMult = (width * 0.5 + fringe * 0.5f) / fringe;
+		ub.strokeMult = (width * 0.5f + fringe * 0.5f) / fringe;
 		ub.strokeThr = strokeThr;
 		
 		if(paint.image != 0)
@@ -542,6 +631,16 @@ class Context
 		ub.paintMatr = invxform.asMatrix3x4;
 		return ub;
 	}
+	private void setUniformAndTexture(size_t uniformIndex, int image_id)
+	{
+		GLUniformBuffer.BindRange[this.fragUniformObject.id, FUBUserIndex] = ByteRange(uniformIndex * this.ubHardwareSize, FragUniformBuffer.sizeof);
+		if(image_id == 0) GLContext.Texture2D = NullTexture;
+		else
+		{
+			const auto texture = this.findTexture(image_id);
+			GLContext.Texture2D = texture is null ? NullTexture : texture.texture;
+		}
+	}
 
 	@property viewport(Size sz)
 	{
@@ -552,33 +651,59 @@ auto asContext(void* p) { return cast(Context)p; }
 
 extern(C)
 {
-int initContext(void* uptr) { uptr.asContext.init(); return 1; }
-int createTexture(void* uptr, int type, int w, int h, int imageFlags, const(byte)* data) { return uptr.asContext.createTexture(type, w, h, imageFlags, data); }
-int deleteTexture(void* uptr, int image) { uptr.asContext.deleteTexture(image); return 1; }
-int updateTexture(void* uptr, int image, int x, int y, int w, int h, const(byte)* data) { return uptr.asContext.findTexture(image).update(x, y, w, h, data); }
-int getTextureSize(void* uptr, int image, int* w, int* h) { return uptr.asContext.findTexture(image).getTextureSize(w, h); }
-void setViewport(void* uptr, int w, int h) { uptr.asContext.viewport = Size(w, h); }
-void cancel(void* uptr) { uptr.asContext.cancelRender(); }
-void flush(void* uptr) { uptr.asContext.flush(); }
-void pushFillCommand(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe, const(float)* bounds, const(NVGpath)* pPaths, int nPaths)
-{
-	uptr.asContext.pushCommand!(CommandType.Fill)(paint, scissor, fringe, pPaths[0 .. nPaths], bounds[0 .. 4]);
-}
-void pushStrokeCommand(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe, float strokeWidth, const(NVGpath)* pPaths, int nPaths)
-{
-	uptr.asContext.pushCommand!(CommandType.Stroke)(paint, scissor, fringe, pPaths[0 .. nPaths], strokeWidth);
-}
-void pushTrianglesCommand(void* uptr, NVGpaint* paint, NVGscissor* scissor, const(NVGvertex)* verts, int nVerts)
-{
-	uptr.asContext.pushTrianglesCommand(paint, scissor, verts[0 .. nVerts]);
-}
-void deleteContext(void* uptr)
-{
-	uptr.asContext.terminate();
-	GC.removeRoot(uptr);
-}
+	// Initialize/Terminate
+	int initContext(void* uptr)
+	{
+		uptr.asContext.init();
+		return 1;
+	}
+	void deleteContext(void* uptr)
+	{
+		uptr.asContext.terminate();
+		GC.removeRoot(uptr);
+	}
+	// Textures
+	int createTexture(void* uptr, int type, int w, int h, int imageFlags, const(byte)* data)
+	{
+		return uptr.asContext.createTexture(type, w, h, imageFlags, data);
+	}
+	int deleteTexture(void* uptr, int image)
+	{
+		uptr.asContext.deleteTexture(image);
+		return 1;
+	}
+	int updateTexture(void* uptr, int image, int x, int y, int w, int h, const(byte)* data)
+	{
+		return uptr.asContext.findTexture(image).update(x, y, w, h, data);
+	}
+	int getTextureSize(void* uptr, int image, int* w, int* h)
+	{
+		return uptr.asContext.findTexture(image).getTextureSize(w, h);
+	}
+	// Viewport
+	void setViewport(void* uptr, int w, int h)
+	{
+		uptr.asContext.viewport = Size(w, h);
+	}
+	// Render Control
+	void cancel(void* uptr) { uptr.asContext.cancelRender(); }
+	void flush(void* uptr) { uptr.asContext.flush(); }
+	// Internal Commands
+	void pushFillCommand(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe, const(float)* bounds, const(NVGpath)* pPaths, int nPaths)
+	{
+		uptr.asContext.pushCommand!(CommandType.Fill)(paint, scissor, fringe, pPaths[0 .. nPaths], bounds[0 .. 4]);
+	}
+	void pushStrokeCommand(void* uptr, NVGpaint* paint, NVGscissor* scissor, float fringe, float strokeWidth, const(NVGpath)* pPaths, int nPaths)
+	{
+		uptr.asContext.pushCommand!(CommandType.Stroke)(paint, scissor, fringe, pPaths[0 .. nPaths], strokeWidth);
+	}
+	void pushTrianglesCommand(void* uptr, NVGpaint* paint, NVGscissor* scissor, const(NVGvertex)* verts, int nVerts)
+	{
+		uptr.asContext.pushTrianglesCommand(paint, scissor, verts[0 .. nVerts]);
+	}
 }
 
+// NanoVG Export
 NVGcontext* nvgCreateGL3()
 {
 	auto pContext = new Context();

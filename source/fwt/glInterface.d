@@ -1,5 +1,24 @@
 module fwt.glInterface;
 
+//
+// OpenGL Interfacing D
+// Copyright (c) 2015 S.Percentage
+//
+// This software is provided 'as-is', without any express or implied
+// warranty.  In no event will the authors be held liable for any damages
+// arising from the use of this software.
+// Permission is granted to anyone to use this software for any purpose,
+// including commercial applications, and to alter it and redistribute it
+// freely, subject to the following restrictions:
+// 1. The origin of this software must not be misrepresented; you must not
+//    claim that you wrote the original software. If you use this software
+//    in a product, an acknowledgment in the product documentation would be
+//    appreciated but is not required.
+// 2. Altered source versions must be plainly marked as such, and must not be
+//    misrepresented as being the original software.
+// 3. This notice may not be removed or altered from any source distribution.
+//
+
 import derelict.opengl3.gl3, derelict.opengl3.gl;
 import std.typecons, std.string, std.algorithm;
 
@@ -108,16 +127,27 @@ static class ArrayData(GLenum T)
 		glCheckError();
 	}
 }
-alias IndexedBufferRange(T) = Tuple!(size_t, "index");
+struct ByteRange
+{
+	size_t offset, length;
+}
 static class GLUniformBuffer
 {
 	alias ArrayData = .ArrayData!GL_UNIFORM_BUFFER;
 	static class BindRange
 	{
-		static void opIndexAssign(T)(IndexedBufferRange!T brange, GLint i)
+		static void opIndexAssign(ByteRange br, GLint i, GLint bi)
 		{
-			glBindBufferRange(GL_UNIFORM_BUFFER, i, );
+			glBindBufferRange(GL_UNIFORM_BUFFER, i, bi, br.offset, br.length);
+			glCheckError();
 		}
+	}
+	
+	static int opDispatch(string op)() if(op == "OffsetAlignment")
+	{
+		int v;
+		glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &v);
+		return v;
 	}
 }
 struct DisablePointer { /* empty */ }
@@ -168,6 +198,7 @@ alias GLStencilOpSet = Tuple!(GLenum, "stencilFail", GLenum, "depthFail", GLenum
 static class GLStencilOpPresets
 {
 	static const Keep = GLStencilOpSet(GL_KEEP, GL_KEEP, GL_KEEP);
+	static const Zero = GLStencilOpSet(GL_ZERO, GL_ZERO, GL_ZERO);
 	static const IncrementOnSucceeded = GLStencilOpSet(GL_KEEP, GL_KEEP, GL_INCR);
 }
 alias GLStencilFuncParams = Tuple!(GLenum, "func", GLint, "refv", GLuint, "mask");
@@ -238,17 +269,22 @@ static class GLContext
 	{
 		alias EnableTest = GLSwitchOptions!GL_STENCIL_TEST;
 		alias Mask = GLSingleSetter!(glStencilMask, GLuint);
-		alias Operations = GLTupleSetter!(glStencilOp, GLStencilOpSet);
+		static class Operations
+		{
+			static void opAssign(GLStencilOpSet args) { glStencilOp(args.expand); }
+			static void opIndexAssign(GLStencilOpSet args, GLFaceDirection dir)
+			{
+				glStencilOpSeparate(dir, args.expand);
+			}
+		}
 		alias Func = GLTupleSetter!(glStencilFunc, GLStencilFuncParams);
 	}
-	static class TextureActivator(GLenum T)
+	static class ActiveTexture
 	{
-		static class Active
+		static void opAssign(GLuint index)
 		{
-			static void opAssign(bool op)
-			{
-				glActiveTexture(T);
-			}
+			glActiveTexture(GL_TEXTURE0 + index);
+			glCheckError();
 		}
 	}
 	static class ColorMask
@@ -262,7 +298,6 @@ static class GLContext
 	alias Texture2D = BindTexture!GL_TEXTURE_2D;
 	alias UniformBuffer = BindBuffer!(GL_UNIFORM_BUFFER, UniformBufferObject);
 	alias ArrayBuffer = BindBuffer!(GL_ARRAY_BUFFER, ArrayBufferObject);
-	alias Texture0 = TextureActivator!GL_TEXTURE0;
 }
 
 // OpenGL Objects

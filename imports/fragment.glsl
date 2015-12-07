@@ -1,5 +1,27 @@
 #version 150 core
 
+//
+// NanoVG-d:
+// Copyright (c) 2015 S.Percentage
+//
+// Original Source(NanoVG):
+// Copyright (c) 2013 Mikko Mononen memon@inside.org
+//
+// This software is provided 'as-is', without any express or implied
+// warranty.  In no event will the authors be held liable for any damages
+// arising from the use of this software.
+// Permission is granted to anyone to use this software for any purpose,
+// including commercial applications, and to alter it and redistribute it
+// freely, subject to the following restrictions:
+// 1. The origin of this software must not be misrepresented; you must not
+//    claim that you wrote the original software. If you use this software
+//    in a product, an acknowledgment in the product documentation would be
+//    appreciated but is not required.
+// 2. Altered source versions must be plainly marked as such, and must not be
+//    misrepresented as being the original software.
+// 3. This notice may not be removed or altered from any source distribution.
+//
+
 layout(std140) uniform frag
 {
 	mat3 scissorMatr, paintMatr;
@@ -34,7 +56,7 @@ float strokeMask()
 {
 	vec2 strokeMaskTemp = vec2((1.0f - abs(texcoord_out.x * 2.0f - 1.0f)) * strokeMult, texcoord_out.y);
 	vec2 strokeMaskClamped = min(vec2(1.0f), strokeMaskTemp);
-	return strokeMaskClamped.x + strokeMaskClamped.y;
+	return strokeMaskClamped.x * strokeMaskClamped.y;
 }
 vec4 colorize(vec4 source)
 {
@@ -59,7 +81,7 @@ vec4 textureBlend(float strokeAlpha, float scissor)
 vec4 texturedTris(float scissor)
 {
 	vec4 texel = colorize(texture(texImage, texcoord_out));
-	return texel * innerColor * scissor;
+	return /*texel * vec4(0.0f, 0.0f, 0.0f, 1.0f)*/vec4(texcoord_out, 0.0f, 1.0f) * scissor;
 }
 
 void main(void)

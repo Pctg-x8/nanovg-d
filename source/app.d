@@ -1,5 +1,24 @@
 import std.stdio;
 
+//
+// NanoVG-d Sample Source
+// Copyright (c) 2015 S.Percentage
+//
+// This software is provided 'as-is', without any express or implied
+// warranty.  In no event will the authors be held liable for any damages
+// arising from the use of this software.
+// Permission is granted to anyone to use this software for any purpose,
+// including commercial applications, and to alter it and redistribute it
+// freely, subject to the following restrictions:
+// 1. The origin of this software must not be misrepresented; you must not
+//    claim that you wrote the original software. If you use this software
+//    in a product, an acknowledgment in the product documentation would be
+//    appreciated but is not required.
+// 2. Altered source versions must be plainly marked as such, and must not be
+//    misrepresented as being the original software.
+// 3. This notice may not be removed or altered from any source distribution.
+//
+
 import nanovg, fwt;
 import std.string;
 
@@ -7,6 +26,7 @@ final class NanoVGSampleApp : DerelictGLAppBase
 {
 	mixin AsSingleton;
 	private NVGcontext* pContext;
+	private int fontid;
 
 	public override
 	{
@@ -21,6 +41,7 @@ final class NanoVGSampleApp : DerelictGLAppBase
 			writeln("OpenGL: ", glGetString(GL_VERSION).fromStringz);
 			this.pContext = nvgCreateGL3();
 			if(this.pContext is null) throw new Exception("NanoVG context creation failed.");
+			this.fontid = nvgCreateFont(this.pContext, "font", "./NotoSans-Regular.ttf");
 
 			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		}
@@ -37,7 +58,36 @@ final class NanoVGSampleApp : DerelictGLAppBase
 			
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 			nvgBeginFrame(this.pContext, w, h, cast(float)w / cast(float)h);
+		
+			nvgFontFaceId(this.pContext, this.fontid);
+			nvgFontSize(this.pContext, 20.0f);
+			nvgTextAlign(this.pContext, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+			nvgFontBlur(this.pContext, 0);
+			nvgFillColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f));
+			nvgText(this.pContext, 8, 8, "NanoVG.d Sample".toStringz, null);
 			
+			/*nvgBeginPath(this.pContext);
+			nvgRect(this.pContext, 100, 100, 150, 30);
+			nvgFillColor(this.pContext, nvgRGBAf(1.0f, 0.75f, 0.0f, 0.5f));
+			nvgFill(this.pContext);
+	
+			nvgBeginPath(this.pContext);
+			nvgRect(this.pContext, 130, 120, 50, 50);
+			nvgFillColor(this.pContext, nvgRGBAf(0.0f, 0.5f, 1.0f, 0.75f));
+			nvgFill(this.pContext);
+	
+			nvgBeginPath(this.pContext);
+			nvgRoundedRect(this.pContext, 50, 50, 250, 250, 8);
+			nvgFillColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 0.25f));
+			nvgFill(this.pContext);
+	
+			nvgBeginPath(this.pContext);
+			nvgMoveTo(this.pContext, 200, 200);
+			nvgBezierTo(this.pContext, 200, 300, 200, 300, 300, 300);
+			nvgStrokeColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f));
+			nvgStrokeWidth(this.pContext, 1.0f);
+			nvgStroke(this.pContext);*/
+		
 			nvgEndFrame(this.pContext);
 		}
 	}
