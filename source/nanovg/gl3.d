@@ -80,7 +80,7 @@ class Texture
 	
 	public this(int w, int h, int type, int imageFlags, const(byte)* pData)
 	{
-		info("CreateTexture: ", w, "/", h);
+		info(false, "CreateTexture: ", w, "/", h);
 		this.size = Size(w, h);
 		this.flags = imageFlags;
 		
@@ -140,8 +140,8 @@ class Texture
 	
 	bool update(int x, int y, int w, int h, const(byte)* data)
 	{
-		info("UpdateTexture: ", x, "/", y, "/", w, "/", h);
-		info("UpdateData: \n", data[0 .. w * h].map!(a => format("%02x", a)).chunks(16).enumerate.map!(a => format("+%04x: ", a[0] * 0x10) ~ a[1].join(" ")).join("\n"));
+		info(false, "UpdateTexture: ", x, "/", y, "/", w, "/", h);
+		info(false, "UpdateData: \n", data[0 .. w * h].map!(a => format("%02x", a)).chunks(16).enumerate.map!(a => format("+%04x: ", a[0] * 0x10) ~ a[1].join(" ")).join("\n"));
 		GLContext.Texture2D = this.texture;
 		this.setPixelStoreState();
 		GLPixelStore.SkipPixels = x;
@@ -219,7 +219,7 @@ class RenderProgram
 		{
 			void opIndexAssign(GLint idx, string vn)
 			{
-				info("UniformBlock Binding: ", this.outer[vn], " <=> ", idx);
+				info(false, "UniformBlock Binding: ", this.outer[vn], " <=> ", idx);
 				glUniformBlockBinding(this.outer.outer.program, this.outer[vn], idx);
 				glCheckError();
 			}
@@ -305,8 +305,8 @@ class Context
 		this.alocVertex = this.program.inputs.vertex;
 		this.alocTexcoord = this.program.inputs.texcoord;
 		
-		info("viewSize Location: ", this.ulocViewSize);
-		info("texImage Location: ", this.ulocTexImage);
+		info(false, "viewSize Location: ", this.ulocViewSize);
+		info(false, "texImage Location: ", this.ulocTexImage);
 		
 		this.program.uniformBlocks.userIndexes["frag"] = FUBUserIndex;
 		this.fragUniformObject = new UniformBufferObject();
@@ -315,9 +315,9 @@ class Context
 		int ub_align = GLUniformBuffer.OffsetAlignment;
 		this.ubHardwareSize = (cast(int)((FragUniformBuffer.sizeof - 1) / ub_align) + 1) * ub_align;
 		this.ubHardwarePadding = this.ubHardwareSize - FragUniformBuffer.sizeof;
-		info("GL UniformBlockAlign: ", ub_align);
-		info("HardwareUniformBlockSize: ", this.ubHardwareSize);
-		info("UniformBlockPadding: ", this.ubHardwarePadding);
+		info(false, "GL UniformBlockAlign: ", ub_align);
+		info(false, "HardwareUniformBlockSize: ", this.ubHardwareSize);
+		info(false, "UniformBlockPadding: ", this.ubHardwarePadding);
 		
 		glFinish();
 	}
@@ -404,7 +404,7 @@ class Context
 		
 		foreach(call; this.callList)
 		{
-			info("callType: ", call.type);
+			info(false, "callType: ", call.type);
 			final switch(call.type)
 			{
 			case CommandType.Fill: this.processFill(call); break;
@@ -650,15 +650,15 @@ class Context
 	private void setUniformAndTexture(size_t uniformIndex, int image_id)
 	{
 		info(false, "Setting UniformOffset: ", uniformIndex * this.ubHardwareSize, "(", uniformIndex, ")");
-		info("UniformBuffer TextureType: ", this.uniformList[uniformIndex].texType);
-		info("UniformBuffer RenderType: ", this.uniformList[uniformIndex].type);
+		info(false, "UniformBuffer TextureType: ", this.uniformList[uniformIndex].texType);
+		info(false, "UniformBuffer RenderType: ", this.uniformList[uniformIndex].type);
 		GLUniformBuffer.BindRange[this.fragUniformObject.id, FUBUserIndex] = ByteRange(uniformIndex * this.ubHardwareSize, FragUniformBuffer.sizeof);
 		if(image_id == 0) GLContext.Texture2D = NullTexture;
 		else
 		{
 			const auto texture = this.findTexture(image_id);
 			GLContext.Texture2D = texture is null ? NullTexture : texture.texture;
-			info("Texture: ", texture.texture);
+			info(false, "Texture: ", texture.texture);
 		}
 	}
 
