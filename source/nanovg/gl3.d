@@ -87,6 +87,11 @@ class Texture
 		glGenTextures(1, &this.texture);
 		GLContext.Texture2D = this.texture;
 		this.setPixelStoreState();
+		
+		GLTexture2D.Wrap.S = imageFlags.raised!NVG_IMAGE_REPEATX ? GL_REPEAT : GL_CLAMP_TO_EDGE;
+		GLTexture2D.Wrap.T = imageFlags.raised!NVG_IMAGE_REPEATY ? GL_REPEAT : GL_CLAMP_TO_EDGE;
+		GLTexture2D.Filter.Min = imageFlags.raised!NVG_IMAGE_GENERATE_MIPMAPS ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
+		GLTexture2D.Filter.Mag = GL_LINEAR;
 		switch(type)
 		{
 		case NVG_TEXTURE_RGBA:
@@ -104,11 +109,6 @@ class Texture
 			glGenerateMipmap(GL_TEXTURE_2D);
 			glCheckError();
 		}
-		
-		GLTexture2D.Wrap.S = imageFlags.raised!NVG_IMAGE_REPEATX ? GL_REPEAT : GL_CLAMP_TO_EDGE;
-		GLTexture2D.Wrap.T = imageFlags.raised!NVG_IMAGE_REPEATY ? GL_REPEAT : GL_CLAMP_TO_EDGE;
-		GLTexture2D.Filter.Min = GL_LINEAR_MIPMAP_LINEAR;
-		GLTexture2D.Filter.Mag = GL_LINEAR;
 		GLContext.Texture2D = NullTexture;
 		
 		/*glGenSamplers(1, &this.sampler);
