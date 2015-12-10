@@ -25,7 +25,7 @@ module nanovg.h;
 // nanovg.h
 // NanoVG core exports(Canvas/CustomRenderer APIs)
 
-struct NVGcontext{}
+struct NVGcontext;
 
 struct NVGcolor
 {

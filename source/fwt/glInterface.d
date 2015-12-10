@@ -21,6 +21,7 @@ module fwt.glInterface;
 
 import derelict.opengl3.gl3, derelict.opengl3.gl;
 import std.typecons, std.string, std.algorithm;
+import std.experimental.logger;
 
 alias Size = Tuple!(int, "width", int, "height");
 bool raised(int flag)(int flagSet) { return (flagSet & flag) != 0; }
@@ -136,9 +137,10 @@ static class GLUniformBuffer
 	alias ArrayData = .ArrayData!GL_UNIFORM_BUFFER;
 	static class BindRange
 	{
-		static void opIndexAssign(ByteRange br, GLint i, GLint bi)
+		static void opIndexAssign(ByteRange br, GLint buffer_name, GLint ui)
 		{
-			glBindBufferRange(GL_UNIFORM_BUFFER, i, bi, br.offset, br.length);
+			info(false, "BindBufferRange: ", buffer_name, "(shader binded through ", ui, ") <=> ", br);
+			glBindBufferRange(GL_UNIFORM_BUFFER, ui, buffer_name, br.offset, br.length);
 			glCheckError();
 		}
 	}
@@ -175,11 +177,11 @@ static class GLProgram
 {
 	static class Uniform
 	{
-		static void opIndexAssign(GLint i, GLint l)
+		static void opIndexAssign(GLint i, GLint l) out { glCheckError(); } body
 		{
 			glUniform1i(l, i);
 		}
-		static void opIndexAssign(float[2] v2, GLint l)
+		static void opIndexAssign(float[2] v2, GLint l) out { glCheckError(); } body
 		{
 			glUniform2fv(l, 1, v2.ptr);
 		}
@@ -187,6 +189,7 @@ static class GLProgram
 }
 
 const GLuint NullTexture = 0;
+const GLuint NullSampler = 0;
 const GLuint DisableProgram = 0;
 alias GLBlendFuncParams = Tuple!(GLenum, "src", GLenum, "dst");
 static class GLBlendPresets
@@ -229,14 +232,14 @@ static class GLContext
 {
 	static class BindTexture(GLenum E)
 	{
-		static void opAssign(GLuint i)
+		static void opAssign(GLuint i) out { glCheckError(); } body
 		{
 			glBindTexture(E, i);
 		}
 	}
 	static class BindBuffer(GLenum E, T)
 	{
-		static void opAssign(T i) { glBindBuffer(E, i is null ? 0 : i.id); }
+		static void opAssign(T i) { info(false, "UniformBuffer?", E == GL_UNIFORM_BUFFER, " binding: ", i is null ? 0 : i.id); glBindBuffer(E, i is null ? 0 : i.id); }
 	}
 	static class VertexArray
 	{

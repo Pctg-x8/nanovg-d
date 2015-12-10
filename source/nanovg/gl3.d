@@ -28,6 +28,7 @@ import nanovg.h;
 import derelict.opengl3.gl3;
 import std.string, std.range, std.algorithm, std.math;
 import core.memory;
+import std.experimental.logger;
 
 public import fwt.glInterface;
 
@@ -72,14 +73,13 @@ auto maxVertCount(const(NVGpath)[] paths)
 
 class Texture
 {
-	GLuint texture;
+	GLuint texture, sampler;
 	Size size;
 	ImageType type;
 	int flags;
 	
 	public this(int w, int h, int type, int imageFlags, const(byte)* pData)
 	{
-		import std.experimental.logger;
 		info("CreateTexture: ", w, "/", h);
 		this.size = Size(w, h);
 		this.flags = imageFlags;
@@ -109,11 +109,18 @@ class Texture
 		GLTexture2D.Wrap.T = imageFlags.raised!NVG_IMAGE_REPEATY ? GL_REPEAT : GL_CLAMP_TO_EDGE;
 		GLTexture2D.Filter.Min = GL_LINEAR_MIPMAP_LINEAR;
 		GLTexture2D.Filter.Mag = GL_LINEAR;
-		glCheckError();
 		GLContext.Texture2D = NullTexture;
+		
+		/*glGenSamplers(1, &this.sampler);
+		this.sampler.glSamplerParameteri(GL_TEXTURE_WRAP_S, imageFlags.raised!NVG_IMAGE_REPEATX ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+		this.sampler.glSamplerParameteri(GL_TEXTURE_WRAP_T, imageFlags.raised!NVG_IMAGE_REPEATY ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+		this.sampler.glSamplerParameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		this.sampler.glSamplerParameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glCheckError();*/
 	}
 	public ~this()
 	{
+		glDeleteSamplers(1, &this.sampler);
 		glDeleteTextures(1, &this.texture);
 	}
 	private void setPixelStoreState()
@@ -133,8 +140,8 @@ class Texture
 	
 	bool update(int x, int y, int w, int h, const(byte)* data)
 	{
-		import std.experimental.logger;
 		info("UpdateTexture: ", x, "/", y, "/", w, "/", h);
+		info("UpdateData: \n", data[0 .. w * h].map!(a => format("%02x", a)).chunks(16).enumerate.map!(a => format("+%04x: ", a[0] * 0x10) ~ a[1].join(" ")).join("\n"));
 		GLContext.Texture2D = this.texture;
 		this.setPixelStoreState();
 		GLPixelStore.SkipPixels = x;
@@ -212,7 +219,9 @@ class RenderProgram
 		{
 			void opIndexAssign(GLint idx, string vn)
 			{
+				info("UniformBlock Binding: ", this.outer[vn], " <=> ", idx);
 				glUniformBlockBinding(this.outer.outer.program, this.outer[vn], idx);
+				glCheckError();
 			}
 		}
 		UserIndexAccessor userIndexes;
@@ -296,7 +305,6 @@ class Context
 		this.alocVertex = this.program.inputs.vertex;
 		this.alocTexcoord = this.program.inputs.texcoord;
 		
-		import std.experimental.logger;
 		info("viewSize Location: ", this.ulocViewSize);
 		info("texImage Location: ", this.ulocTexImage);
 		
@@ -307,6 +315,9 @@ class Context
 		int ub_align = GLUniformBuffer.OffsetAlignment;
 		this.ubHardwareSize = (cast(int)((FragUniformBuffer.sizeof - 1) / ub_align) + 1) * ub_align;
 		this.ubHardwarePadding = this.ubHardwareSize - FragUniformBuffer.sizeof;
+		info("GL UniformBlockAlign: ", ub_align);
+		info("HardwareUniformBlockSize: ", this.ubHardwareSize);
+		info("UniformBlockPadding: ", this.ubHardwarePadding);
 		
 		glFinish();
 	}
@@ -371,13 +382,15 @@ class Context
 		GLContext.ActiveTexture = 0;
 		GLContext.Texture2D = NullTexture;
 		// uniform setup
-		byte[] uniformBytes;
-		foreach(ref ub; this.uniformList)
+		ubyte[] uniformBytes;
+		foreach(i, ref ub; this.uniformList)
 		{
-			auto pBytePtr = cast(const(byte)*)cast(void*)&ub;
+			auto pBytePtr = cast(ubyte*)&ub;
 			uniformBytes ~= pBytePtr[0 .. FragUniformBuffer.sizeof];
-			uniformBytes.length += this.ubHardwarePadding;
+			if(this.ubHardwarePadding > 0) uniformBytes.length += this.ubHardwarePadding;
 		}
+		info(false, "uniforms: ", this.uniformList);
+		info(false, "uniformBufferData: \n", uniformBytes.map!(a => format("%02x", a)).chunks(16).enumerate.map!(a => format("+%04x: ", a[0] * 0x10) ~ a[1].join(" ")).join("\n"));
 		GLContext.UniformBuffer = this.fragUniformObject;
 		GLUniformBuffer.ArrayData = uniformBytes;
 		GLProgram.Uniform[this.ulocTexImage] = 0;
@@ -391,8 +404,7 @@ class Context
 		
 		foreach(call; this.callList)
 		{
-			import std.experimental.logger;
-			// info("Process Call...type: ", call.type);
+			info("callType: ", call.type);
 			final switch(call.type)
 			{
 			case CommandType.Fill: this.processFill(call); break;
@@ -414,6 +426,8 @@ class Context
 	const DrawStrokeFunc = (Path a) { glDrawArrays(GL_TRIANGLE_STRIP, cast(int)a.strokeOffset, cast(int)a.strokeCount); };
 	private void processFill(InternalDrawCall call)
 	{
+		auto processList = this.pathList[call.pathOffset .. call.pathOffset + call.pathCount];
+		
 		// Draw shapes
 		GLContext.Stencil.EnableTest = true;
 		GLContext.Stencil.Mask = 0xff;
@@ -423,7 +437,7 @@ class Context
 		GLContext.Stencil.Operations[GLFaceDirection.Front] = GLStencilOpSet(GL_KEEP, GL_KEEP, GL_INCR_WRAP);
 		GLContext.Stencil.Operations[GLFaceDirection.Back] = GLStencilOpSet(GL_KEEP, GL_KEEP, GL_DECR_WRAP);
 		GLContext.CullFace.Enable = false;
-		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!FillFunc;
+		processList.each!FillFunc;
 		GLContext.CullFace.Enable = true;
 		
 		// Draw anti-aliased pixels
@@ -431,7 +445,7 @@ class Context
 		this.setUniformAndTexture(call.uniformOffset + 1, call.image);
 		GLContext.Stencil.Func = GLStencilFuncParams(GL_EQUAL, 0, 0xff);
 		GLContext.Stencil.Operations = GLStencilOpPresets.Keep;
-		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!DrawStrokeFunc;
+		processList.each!DrawStrokeFunc;
 		
 		// Draw fill
 		GLContext.Stencil.Func = GLStencilFuncParams(GL_NOTEQUAL, 0, 0xff);
@@ -442,14 +456,16 @@ class Context
 	}
 	private void processConvexFill(InternalDrawCall call)
 	{
-		import std.experimental.logger;
+		auto processList = this.pathList[call.pathOffset .. call.pathOffset + call.pathCount];
+		
 		this.setUniformAndTexture(call.uniformOffset, call.image);
-		// this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!(a => info(a.fillOffset, "/", a.fillCount, "/", a.strokeOffset, "/", a.strokeCount));
-		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!FillFunc;
-		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!DrawStrokeFunc;
+		processList.each!FillFunc;
+		processList.each!DrawStrokeFunc;
 	}
 	private void processStroke(InternalDrawCall call)
 	{
+		auto processList = this.pathList[call.pathOffset .. call.pathOffset + call.pathCount];
+		
 		// Uses Stencil Stroke
 		GLContext.Stencil.EnableTest = true;
 		GLContext.Stencil.Mask = 0xff;
@@ -458,19 +474,19 @@ class Context
 		GLContext.Stencil.Func = GLStencilFuncParams(GL_EQUAL, 0, 0xff);
 		GLContext.Stencil.Operations = GLStencilOpPresets.IncrementOnSucceeded;
 		this.setUniformAndTexture(call.uniformOffset + 1, call.image);
-		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!DrawStrokeFunc;
+		processList.each!DrawStrokeFunc;
 		
 		// Draw anti-aliased pixels
 		this.setUniformAndTexture(call.uniformOffset, call.image);
 		GLContext.Stencil.Func = GLStencilFuncParams(GL_EQUAL, 0, 0xff);
 		GLContext.Stencil.Operations = GLStencilOpPresets.Keep;
-		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!DrawStrokeFunc;
+		processList.each!DrawStrokeFunc;
 		
 		// Clear stencil buffer
 		GLContext.ColorMask = [false, false, false, false];
 		GLContext.Stencil.Func = GLStencilFuncParams(GL_ALWAYS, 0, 0xff);
 		GLContext.Stencil.Operations = GLStencilOpPresets.Zero;
-		this.pathList[call.pathOffset .. call.pathOffset + call.pathCount].each!DrawStrokeFunc;
+		processList.each!DrawStrokeFunc;
 		GLContext.ColorMask = [true, true, true, true];
 		
 		GLContext.Stencil.EnableTest = false;
@@ -633,12 +649,16 @@ class Context
 	}
 	private void setUniformAndTexture(size_t uniformIndex, int image_id)
 	{
+		info(false, "Setting UniformOffset: ", uniformIndex * this.ubHardwareSize, "(", uniformIndex, ")");
+		info("UniformBuffer TextureType: ", this.uniformList[uniformIndex].texType);
+		info("UniformBuffer RenderType: ", this.uniformList[uniformIndex].type);
 		GLUniformBuffer.BindRange[this.fragUniformObject.id, FUBUserIndex] = ByteRange(uniformIndex * this.ubHardwareSize, FragUniformBuffer.sizeof);
 		if(image_id == 0) GLContext.Texture2D = NullTexture;
 		else
 		{
 			const auto texture = this.findTexture(image_id);
 			GLContext.Texture2D = texture is null ? NullTexture : texture.texture;
+			info("Texture: ", texture.texture);
 		}
 	}
 

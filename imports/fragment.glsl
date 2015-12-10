@@ -1,4 +1,4 @@
-#version 150 core
+#version 330
 
 //
 // NanoVG-d:
@@ -81,7 +81,8 @@ vec4 textureBlend(float strokeAlpha, float scissor)
 vec4 texturedTris(float scissor)
 {
 	vec4 texel = colorize(texture(texImage, texcoord_out));
-	return /*texel * vec4(0.0f, 0.0f, 0.0f, 1.0f)*/vec4(texcoord_out, 0.0f, 1.0f) * scissor;
+	return texel * innerColor * scissor;
+	// return vec4(texcoord_out / (180.0f / 512.0f), 0.0f, 1.0f) * scissor;
 }
 
 void main(void)

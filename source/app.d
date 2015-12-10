@@ -42,8 +42,9 @@ final class NanoVGSampleApp : DerelictGLAppBase
 			this.pContext = nvgCreateGL3();
 			if(this.pContext is null) throw new Exception("NanoVG context creation failed.");
 			this.fontid = nvgCreateFont(this.pContext, "font", "./NotoSans-Regular.ttf");
+			if(this.fontid < 0) throw new Exception("nvgCreateFont Error");
 
-			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+			glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
 		}
 		void preTerminate()
 		{
@@ -64,9 +65,9 @@ final class NanoVGSampleApp : DerelictGLAppBase
 			nvgTextAlign(this.pContext, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 			nvgFontBlur(this.pContext, 0);
 			nvgFillColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f));
-			nvgText(this.pContext, 8, 8, "NanoVG.d Sample".toStringz, null);
+			nvgText(this.pContext, 0, 0, "NanoVG.d Sample".toStringz, null);
 			
-			/*nvgBeginPath(this.pContext);
+			nvgBeginPath(this.pContext);
 			nvgRect(this.pContext, 100, 100, 150, 30);
 			nvgFillColor(this.pContext, nvgRGBAf(1.0f, 0.75f, 0.0f, 0.5f));
 			nvgFill(this.pContext);
@@ -86,7 +87,7 @@ final class NanoVGSampleApp : DerelictGLAppBase
 			nvgBezierTo(this.pContext, 200, 300, 200, 300, 300, 300);
 			nvgStrokeColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f));
 			nvgStrokeWidth(this.pContext, 1.0f);
-			nvgStroke(this.pContext);*/
+			nvgStroke(this.pContext);
 		
 			nvgEndFrame(this.pContext);
 		}
