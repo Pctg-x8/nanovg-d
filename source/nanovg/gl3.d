@@ -23,6 +23,7 @@ module nanovg.gl3;
 //
 
 // NanoVG OpenGL3 renderer Implementation
+// (Rewriting Original Version to Dlang)
 
 import nanovg.h;
 import derelict.opengl3.gl3;
@@ -86,6 +87,7 @@ class Texture
 		
 		glGenTextures(1, &this.texture);
 		GLContext.Texture2D = this.texture;
+		scope(exit) GLContext.Texture2D = NullTexture;
 		this.setPixelStoreState();
 		
 		GLTexture2D.Wrap.S = imageFlags.raised!NVG_IMAGE_REPEATX ? GL_REPEAT : GL_CLAMP_TO_EDGE;
@@ -109,14 +111,6 @@ class Texture
 			glGenerateMipmap(GL_TEXTURE_2D);
 			glCheckError();
 		}
-		GLContext.Texture2D = NullTexture;
-		
-		/*glGenSamplers(1, &this.sampler);
-		this.sampler.glSamplerParameteri(GL_TEXTURE_WRAP_S, imageFlags.raised!NVG_IMAGE_REPEATX ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-		this.sampler.glSamplerParameteri(GL_TEXTURE_WRAP_T, imageFlags.raised!NVG_IMAGE_REPEATY ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-		this.sampler.glSamplerParameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		this.sampler.glSamplerParameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glCheckError();*/
 	}
 	public ~this()
 	{

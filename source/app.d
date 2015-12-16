@@ -79,6 +79,11 @@ final class NanoVGSampleApp : DerelictGLAppBase
 			nvgRoundedRect(this.pContext, 50, 50, 250, 250, 8);
 			nvgFillColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 0.25f));
 			nvgFill(this.pContext);
+			
+			nvgTextAlign(this.pContext, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+			nvgFontBlur(this.pContext, 0);
+			nvgFillColor(this.pContext, nvgRGBAf(1.0f, 1.0f, 1.0f, 1.0f));
+			nvgText(this.pContext, 50 + 250 / 2, 50 + 4, "TestWindow Modoki".toStringz, null);
 	
 			nvgBeginPath(this.pContext);
 			nvgMoveTo(this.pContext, 200, 200);
