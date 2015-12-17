@@ -16,11 +16,12 @@ Needed compiler option: -version=UseGL3Renderer
 ```d
 import derelict.glfw3.glfw3;
 import derelict.opengl3.gl;
+import std.string;
 
 // import nanovg-d package
 import nanovg;
 
-void main(void)
+void main()
 {
 	// Load/InitLibrary
 	DerelictGL3.load();
@@ -62,10 +63,10 @@ void main(void)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		{
 			nvgBeginFrame(pContext, w, h, cast(float)w / cast(float)h);
-			scope(exit) nvgEngFrame(pContext);
+			scope(exit) nvgEndFrame(pContext);
 		
 			// Text
-			nvgFontFaceId(pContext, this.fontid);
+			nvgFontFaceId(pContext, fontid);
 			nvgFontSize(pContext, 18.0f);
 			nvgTextAlign(pContext, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 			nvgFontBlur(pContext, 0);
@@ -74,35 +75,35 @@ void main(void)
 			
 			// Filled Rectangle
 			nvgBeginPath(pContext);
-			nvgRect.pContext, 100, 100, 150, 30);
+			nvgRect(pContext, 100, 100, 150, 30);
 			nvgFillColor(pContext, nvgRGBAf(1.0f, 0.75f, 0.0f, 0.5f));
 			nvgFill(pContext);
 			
 			// Filled Rectangle2
-			nvgBeginPath(this.pContext);
-			nvgRect(this.pContext, 130, 120, 50, 50);
-			nvgFillColor(this.pContext, nvgRGBAf(0.0f, 0.5f, 1.0f, 0.75f));
-			nvgFill(this.pContext);
+			nvgBeginPath(pContext);
+			nvgRect(pContext, 130, 120, 50, 50);
+			nvgFillColor(pContext, nvgRGBAf(0.0f, 0.5f, 1.0f, 0.75f));
+			nvgFill(pContext);
 		
 			// Filled/Rounded Rectangle
-			nvgBeginPath(this.pContext);
-			nvgRoundedRect(this.pContext, 50, 50, 250, 250, 8);
-			nvgFillColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 0.25f));
-			nvgFill(this.pContext);
+			nvgBeginPath(pContext);
+			nvgRoundedRect(pContext, 50, 50, 250, 250, 8);
+			nvgFillColor(pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 0.25f));
+			nvgFill(pContext);
 			
 			// Centered Text
-			nvgTextAlign(this.pContext, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
-			nvgFontBlur(this.pContext, 0);
-			nvgFillColor(this.pContext, nvgRGBAf(1.0f, 1.0f, 1.0f, 1.0f));
-			nvgText(this.pContext, 50 + 250 / 2, 50 + 4, "TestWindow Modoki".toStringz, null);
+			nvgTextAlign(pContext, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+			nvgFontBlur(pContext, 0);
+			nvgFillColor(pContext, nvgRGBAf(1.0f, 1.0f, 1.0f, 1.0f));
+			nvgText(pContext, 50 + 250 / 2, 50 + 4, "TestWindow Modoki".toStringz, null);
 		
 			// Bezier Stroke
-			nvgBeginPath(this.pContext);
-			nvgMoveTo(this.pContext, 200, 200);
-			nvgBezierTo(this.pContext, 200, 300, 200, 300, 300, 300);
-			nvgStrokeColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f));
-			nvgStrokeWidth(this.pContext, 1.0f);
-			nvgStroke(this.pContext);
+			nvgBeginPath(pContext);
+			nvgMoveTo(pContext, 200, 200);
+			nvgBezierTo(pContext, 200, 300, 200, 300, 300, 300);
+			nvgStrokeColor(pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f));
+			nvgStrokeWidth(pContext, 1.0f);
+			nvgStroke(pContext);
 		}
 		
 		pWindow.glfwSwapBuffers();
