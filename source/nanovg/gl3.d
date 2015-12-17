@@ -31,7 +31,7 @@ import std.string, std.range, std.algorithm, std.math;
 import core.memory;
 import std.experimental.logger;
 
-public import fwt.glInterface;
+public import nanovg.glInterface;
 
 enum CommandType
 {
