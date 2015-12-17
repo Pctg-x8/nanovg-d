@@ -1,4 +1,4 @@
-module fwt.glInterface;
+module nanovg.glInterface;
 
 //
 // OpenGL Interfacing D
