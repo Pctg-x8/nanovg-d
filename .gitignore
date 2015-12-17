@@ -1,0 +1,10 @@
+.dub
+docs.json
+__dummy.html
+*.o
+*.obj
+nanovg-d
+*.a
+*.ttf
+LICENSE_OFL.txt
+*.zip
