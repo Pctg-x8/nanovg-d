@@ -25,8 +25,10 @@ import std.string;
 final class NanoVGSampleApp : DerelictGLAppBase
 {
 	mixin AsSingleton;
-	private NVGcontext* pContext;
-	private int fontid;
+	// private NVGcontext* pContext;
+	// private int fontid;
+	private NanoVG.ContextGL3 context;
+	private NanoVG.Font fontid;
 
 	public override
 	{
@@ -37,16 +39,18 @@ final class NanoVGSampleApp : DerelictGLAppBase
 		void postInit()
 		{
 			writeln("OpenGL: ", glGetString(GL_VERSION).fromStringz);
-			this.pContext = nvgCreateGL3();
+			this.context = new NanoVG.ContextGL3();
+			this.fontid = this.context.createFont("font", "./NotoSans-Regular.ttf");
+			/*this.pContext = nvgCreateGL3();
 			if(this.pContext is null) throw new Exception("NanoVG context creation failed.");
 			this.fontid = nvgCreateFont(this.pContext, "font", "./NotoSans-Regular.ttf");
-			if(this.fontid < 0) throw new Exception("nvgCreateFont Error");
+			if(this.fontid < 0) throw new Exception("nvgCreateFont Error");*/
 
 			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		}
 		void preTerminate()
 		{
-			nvgDeleteGL3(this.pContext);
+			// nvgDeleteGL3(this.pContext);
 		}
 
 		void render()
@@ -56,43 +60,51 @@ final class NanoVGSampleApp : DerelictGLAppBase
 			glViewport(0, 0, w, h);
 			
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-			nvgBeginFrame(this.pContext, w, h, cast(float)w / cast(float)h);
-		
-			nvgFontFaceId(this.pContext, this.fontid);
-			nvgFontSize(this.pContext, 18.0f);
-			nvgTextAlign(this.pContext, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-			nvgFontBlur(this.pContext, 0);
-			nvgFillColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f));
-			nvgText(this.pContext, 8, 8, "NanoVG.d Sample".toStringz, null);
-			
-			nvgBeginPath(this.pContext);
-			nvgRect(this.pContext, 100, 100, 150, 30);
-			nvgFillColor(this.pContext, nvgRGBAf(1.0f, 0.75f, 0.0f, 0.5f));
-			nvgFill(this.pContext);
-	
-			nvgBeginPath(this.pContext);
-			nvgRect(this.pContext, 130, 120, 50, 50);
-			nvgFillColor(this.pContext, nvgRGBAf(0.0f, 0.5f, 1.0f, 0.75f));
-			nvgFill(this.pContext);
-	
-			nvgBeginPath(this.pContext);
-			nvgRoundedRect(this.pContext, 50, 50, 250, 250, 8);
-			nvgFillColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 0.25f));
-			nvgFill(this.pContext);
-			
-			nvgTextAlign(this.pContext, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
-			nvgFontBlur(this.pContext, 0);
-			nvgFillColor(this.pContext, nvgRGBAf(1.0f, 1.0f, 1.0f, 1.0f));
-			nvgText(this.pContext, 50 + 250 / 2, 50 + 4, "TestWindow Modoki".toStringz, null);
-	
-			nvgBeginPath(this.pContext);
-			nvgMoveTo(this.pContext, 200, 200);
-			nvgBezierTo(this.pContext, 200, 300, 200, 300, 300, 300);
-			nvgStrokeColor(this.pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f));
-			nvgStrokeWidth(this.pContext, 1.0f);
-			nvgStroke(this.pContext);
-		
-			nvgEndFrame(this.pContext);
+			with(this.context)
+			{
+				beginFrame(w, h, cast(float)w / cast(float)h);
+				scope(exit) endFrame();
+				
+				// Initialize
+				fontFace = this.fontid;
+				fontSize = 18.0f;
+				fontBlur = 0;
+				
+				// Title Text
+				textAlign = NanoVG.TextAlign.LEFT | NanoVG.TextAlign.TOP;
+				fillColor = nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f);
+				text(8, 8, "NanoVG.d Sample");
+				
+				// Rect1
+				beginPath();
+				rect(100, 100, 150, 30);
+				fillColor = nvgRGBAf(1.0f, 0.75f, 0.0f, 0.5f);
+				fill();
+				
+				// Rect2
+				beginPath();
+				rect(130, 120, 50, 50);
+				fillColor = nvgRGBAf(0.0f, 0.5f, 1.0f, 0.75f);
+				fill();
+				
+				// Rounded Rect
+				beginPath();
+				roundedRect(50, 50, 250, 250, 8.0f);
+				fillColor = nvgRGBAf(0.0f, 0.0f, 0.0f, 0.25f);
+				fill();
+				
+				// Centered Text
+				textAlign = NanoVG.TextAlign.CENTER | NanoVG.TextAlign.TOP;
+				fillColor = nvgRGBAf(1.0f, 1.0f, 1.0f, 1.0f);
+				text(50 + 250 / 2, 50 + 4, "TextWindow Modoki");
+				
+				// Beizer Curve
+				beginPath();
+				moveTo(200, 200);
+				bezierTo(200, 300, 200, 300, 300, 300);
+				strokeColor = nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f);
+				stroke();
+			}
 		}
 	}
 }
