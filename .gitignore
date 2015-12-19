@@ -9,3 +9,4 @@ nanovg-d
 LICENSE_OFL.txt
 *.zip
 example/example
+example/dub*
