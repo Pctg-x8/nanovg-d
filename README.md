@@ -47,11 +47,8 @@ void main()
 	
 	// CreateNanoVGContext/Font
 	// (Download and place NotoSans font)
-	auto pContext = nvgCreateGL3();
-	if(pContext is null) throw new Exception("NanoVG context creation failed.");
-	scope(exit) nvgDeleteGL3(pContext);
-	auto fontid = nvgCreateFont(pContext, "font", "./NotoSans-Regular.ttf");
-	if(fontid < 0) throw new Exception("nvgCreateFont Error");
+	auto context = new NanoVG.ContextGL3();
+	auto fontid = context.createFont("font", "./NotoSans-Regular.ttf");
 	
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	while(!glfwWindowShouldClose(pWindow))
@@ -61,49 +58,50 @@ void main()
 		glViewport(0, 0, w, h);
 		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		with(context)
 		{
-			nvgBeginFrame(pContext, w, h, cast(float)w / cast(float)h);
-			scope(exit) nvgEndFrame(pContext);
-		
-			// Text
-			nvgFontFaceId(pContext, fontid);
-			nvgFontSize(pContext, 18.0f);
-			nvgTextAlign(pContext, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-			nvgFontBlur(pContext, 0);
-			nvgFillColor(pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f));
-			nvgText(pContext, 8, 8, "NanoVG.d Sample".toStringz, null);
+			beginFrame(w, h, cast(float)w / cast(float)h);
+			scope(exit) endFrame();
 			
-			// Filled Rectangle
-			nvgBeginPath(pContext);
-			nvgRect(pContext, 100, 100, 150, 30);
-			nvgFillColor(pContext, nvgRGBAf(1.0f, 0.75f, 0.0f, 0.5f));
-			nvgFill(pContext);
+			// Initialize
+			fontFace = fontid;
+			fontSize = 18.0f;
+			fontBlur = 0;
 			
-			// Filled Rectangle2
-			nvgBeginPath(pContext);
-			nvgRect(pContext, 130, 120, 50, 50);
-			nvgFillColor(pContext, nvgRGBAf(0.0f, 0.5f, 1.0f, 0.75f));
-			nvgFill(pContext);
-		
-			// Filled/Rounded Rectangle
-			nvgBeginPath(pContext);
-			nvgRoundedRect(pContext, 50, 50, 250, 250, 8);
-			nvgFillColor(pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 0.25f));
-			nvgFill(pContext);
+			// Title Text
+			textAlign = NanoVG.TextAlign.LEFT | NanoVG.TextAlign.TOP;
+			fillColor = nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f);
+			text(8, 8, "NanoVG.d Sample");
+			
+			// Rect1
+			beginPath();
+			rect(100, 100, 150, 30);
+			fillColor = nvgRGBAf(1.0f, 0.75f, 0.0f, 0.5f);
+			fill();
+			
+			// Rect2
+			beginPath();
+			rect(130, 120, 50, 50);
+			fillColor = nvgRGBAf(0.0f, 0.5f, 1.0f, 0.75f);
+			fill();
+			
+			// Rounded Rect
+			beginPath();
+			roundedRect(50, 50, 250, 250, 8.0f);
+			fillColor = nvgRGBAf(0.0f, 0.0f, 0.0f, 0.25f);
+			fill();
 			
 			// Centered Text
-			nvgTextAlign(pContext, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
-			nvgFontBlur(pContext, 0);
-			nvgFillColor(pContext, nvgRGBAf(1.0f, 1.0f, 1.0f, 1.0f));
-			nvgText(pContext, 50 + 250 / 2, 50 + 4, "TestWindow Modoki".toStringz, null);
-		
-			// Bezier Stroke
-			nvgBeginPath(pContext);
-			nvgMoveTo(pContext, 200, 200);
-			nvgBezierTo(pContext, 200, 300, 200, 300, 300, 300);
-			nvgStrokeColor(pContext, nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f));
-			nvgStrokeWidth(pContext, 1.0f);
-			nvgStroke(pContext);
+			textAlign = NanoVG.TextAlign.CENTER | NanoVG.TextAlign.TOP;
+			fillColor = nvgRGBAf(1.0f, 1.0f, 1.0f, 1.0f);
+			text(50 + 250 / 2, 50 + 4, "TextWindow Modoki");
+			
+			// Beizer Curve
+			beginPath();
+			moveTo(200, 200);
+			bezierTo(200, 300, 200, 300, 300, 300);
+			strokeColor = nvgRGBAf(0.0f, 0.0f, 0.0f, 1.0f);
+			stroke();
 		}
 		
 		pWindow.glfwSwapBuffers();
