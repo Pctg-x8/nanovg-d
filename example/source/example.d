@@ -33,7 +33,7 @@ void main()
 	// CreateNanoVGContext/Font
 	// (Download and place NotoSans font)
 	auto context = new NanoVG.ContextGL3();
-	auto fontid = context.createFont(pContext, "font", "./NotoSans-Regular.ttf");
+	auto fontid = context.createFont("font", "./NotoSans-Regular.ttf");
 	
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	while(!glfwWindowShouldClose(pWindow))
